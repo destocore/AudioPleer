@@ -1,0 +1,12 @@
+*.pyc
+LICENSE
+.gitignore
+__pycache__
+Dockerfile
+.dockerignore
+.git
+*.bat
+*.sh
+version.txt
+README.md
+cache

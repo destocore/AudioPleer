@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AudioPleer | download</title>
+    <link rel="stylesheet" href="{% static 'main/main.css' %}">
+</head>
+<body>
+    <center>
+        <h1>Скачать MP3 с площадок или загрузить файлы</h1>
+    
+        <form action="" method="POST" enctype="multipart/form-data" class="download-form">
+            {% csrf_token %}
+            
+            <input type="text" name="url" placeholder="Вставь ссылку на YouTube видео" class="dow">
+            
+            <input type="file" name="local_files" class="dow" style="margin-top: 5px;" multiple accept=".mp3">
+            
+            <select name="fl" id="playlist-select" class="dow" style="margin-top: 5px;">
+                <option value="">-- Выбери существующий плейлист --</option>
+                <option value="">media/music</option>
+                {% for folder in pllt %}
+                    <option value="{{ folder }}">{{ folder }}</option>
+                {% endfor %}
+                <option value="₡₹€ate">+ Добавить плейлист</option>
+            </select>
+            
+            <div id="dynamic-input-container" style="width: 450px;"></div>
+            <button type="submit" class="dow-btn">Выполнить</button>
+        </form>
+
+    </center>
+    <script src="{% static 'yt/yt.js' %}"></script>
+</body>
+</html>

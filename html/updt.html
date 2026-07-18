@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioPleer | Update Required</title>
+    <link rel="stylesheet" href="{% static 'main/main.css' %}">
+</head>
+<body>
+
+    <!-- Контейнер выравнивает карточку ровно по центру экрана -->
+    <main class="update-container">
+        <div class="update-card">
+            <h1>Вам следует обновить плеер</h1>
+            
+            <!-- Главное действие (Яркая зеленая кнопка) -->
+            <a href="https://github.com/destocore/AudioPleer/releases" target="_blank">
+                <button class="upd-btn upd-btn-primary">Открыть релизы</button>
+            </a>
+            
+            <!-- Второстепенное действие 1 -->
+            <a href="https://github.com/destocore/AudioPleer" target="_blank">
+                <button class="upd-btn upd-btn-secondary">Открыть исходник</button>
+            </a>
+            
+            <!-- Второстепенное действие 2 -->
+            <a href="/">
+                <button class="upd-btn upd-btn-secondary">Вернуться в плеер</button>
+            </a>
+        </div>
+    </main>
+
+</body>
+</html>

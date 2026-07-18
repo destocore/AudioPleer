@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AudioPleer</title>
+    <link rel="stylesheet" href="{% static 'main/main.css' %}">
+</head>
+<body>
+    <!-- Фиксированная шапка -->
+    <header class="head">
+        <h1>🎶 AudioPleer</h1>
+        
+        <!-- ИСПРАВЛЕНО: Добавлен контейнер для кнопок -->
+        <div class="head-buttons">
+            <a href="/download" class="hb">Скачать музыку из ссылки</a>
+            {% if exst %}
+            <a href="/export" class="hb">Экспортировать всю музыку</a>
+            {% endif %}
+        </div>
+    </header>
+
+
+    <!-- Основной контейнер, разделяющий экран на две части -->
+    <div class="main-container">
+        
+        <!-- Левая панель: Плейлисты (всегда на месте) -->
+        <aside class="sidebar">
+            <h2 class="sidebar-title">📁 Плейлисты</h2>
+            <div class="play-list">
+                <input type="text" id="search-input" placeholder="🔎 Поиск локальных песен" name="poi" class="dow">
+                <!-- Ссылка на главную (все треки) -->
+                <div class="play-item backend-link" onclick="window.location.href='/';">
+                    <p>🏠 Главная</p>
+                </div>
+                
+                {% if playlist %}
+                    {% for playlis in playlist %}
+                    <!-- Исправлено: теперь передается именно playlis текущей итерации -->
+                    <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
+                        <p>🎵 {{ playlis }}</p>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </aside>
+
+        <!-- Правая панель: Список треков (скроллится независимо) -->
+        <main class="content-area">
+            <div class="track-list">
+                {% for track in tracks %}
+                <!-- Теперь клик работает по всей площади строки с первого раза -->
+                <div class="track-item" onclick="playTrack({{ forloop.counter0 }})">
+                    <p>{{ track }}</p>
+                    
+                    <!-- event.stopPropagation() не даст запуститься функции playTrack при клике на крестик -->
+                    <button class="delete-btn" onclick="event.stopPropagation(); confirmDelete(this, '{{ track|escapejs }}', '{% if current_playlist %}{{ current_playlist|escapejs }}{% endif %}')">❌</button>
+                </div>
+                {% empty %}
+                    <div class="track-empty-state">
+                        <p>Музыка не найдена</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </main>
+
+
+    </div>
+
+    <!-- Плеер-бар (снизу, поверх всего) -->
+    <div class="player-bar">
+        <div class="track-info">
+            <span id="current-title">Выберите трек</span>
+        </div>
+        <audio id="main-audio"></audio>
+        <div class="controls">
+            <button onclick="prevTrack()">⏮</button>
+            <button id="play-btn" onclick="togglePlay()">▶️</button>
+            <button onclick="nextTrack()">⏭</button>
+            <button id="repeat-btn" onclick="changeRepeatMode()">➡️ Без повтора</button>
+        </div>
+        <div class="volume-control">
+            <span>🔊</span>
+            <input type="range" id="volume-bar" value="100" max="100">
+        </div>
+        <input type="range" id="progress-bar" value="0" max="100">
+    </div>
+
+    <script>
+        const tracksData = [
+            {% for track in tracks %}
+            { 
+                name: "{{ track|escapejs }}", 
+                url: "{{ MEDIA_URL }}music/{% if current_playlist %}{{ current_playlist|urlencode }}/{% endif %}{{ track|urlencode }}" 
+            },
+            {% endfor %}
+        ];
+    </script>
+    <script src="{% static 'main/main.js' %}"></script>
+</body>
+</html>

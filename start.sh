@@ -1,0 +1,1 @@
+sudo waitress-serve --listen=0.0.0.0:80 AudioPleer.wsgi:application
