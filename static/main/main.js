@@ -210,6 +210,40 @@ function confirmDelete(buttonElement, trackName, playlistName) {
     }
 }
 
+function confirmDeletePlaylist(buttonE, playlistN) {
+    const isConfirmed = confirm(`Вы точно хотите удалить плейлист "${playlistN}"?`);
+
+    if (isConfirmed) {
+        // ДОПОЛНИТЕЛЬНО (для Windows): Сбрасываем плеер, чтобы снять блокировку с файлов
+        const audioPlayer = document.querySelector('audio'); // или ваша переменная плеера
+        if (audioPlayer) {
+            audioPlayer.pause();
+            audioPlayer.src = ''; 
+        }
+
+        let deleteUrl = `/delete-pl/?playlist=${encodeURIComponent(playlistN)}`;
+        
+        fetch(deleteUrl, {
+            method: 'DELETE', 
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') 
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.href = '/'; // Улетаем на главную
+            } else {
+                alert('Ошибка при удалении плейлиста на сервере.');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Не удалось связаться с сервером.');
+        });
+    }
+}
+
+
 // Вспомогательная функция для получения CSRF-токена Django
 function getCookie(name) {
     let cookieValue = null;

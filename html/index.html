@@ -39,6 +39,11 @@
                     <!-- Исправлено: теперь передается именно playlis текущей итерации -->
                     <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
                         <p>🎵 {{ playlis }}</p>
+                        <button class="delete-btn" onclick="event.stopPropagation(); confirmDeletePlaylist(this, '{{ playlis|escapejs }}')">❌</button>
+                    </div>
+                    {%empty%}
+                    <div class="track-empty-state">
+                        <p>Плейлист не найден</p>
                     </div>
                     {% endfor %}
                 {% endif %}

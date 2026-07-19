@@ -26,6 +26,7 @@ urlpatterns = [
     path('download/', views.youtube),
     path('export/', views.ExportSystem),
     path('delete-track/', views.delete_track, name='delete_track'),
+    path('delete-pl/', views.delete_pl, name='delete_pl'),
 
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),

@@ -1,10 +1,12 @@
 from django.shortcuts import render, redirect
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, FileResponse
+from django.http import Http404, FileResponse, JsonResponse, HttpResponseBadRequest
 import os
 from pytubefix import YouTube
 import requests
+import shutil
+from django.utils._os import safe_join
 
 shup = False
 
@@ -180,8 +182,6 @@ def ExportSystem(req):
         
     return FileResponse(open(archP, 'rb'), as_attachment=True, filename='musiclist.zip')
 
-from django.http import JsonResponse
-
 def delete_track(request):
     if request.method == 'DELETE':
         track_name = request.GET.get('track')       # Например: "song.mp3"
@@ -208,3 +208,23 @@ def delete_track(request):
             return JsonResponse({'error': 'Файл не найден на сервере'}, status=404)
 
     return JsonResponse({'error': 'Неверный метод запроса'}, status=400)
+
+def delete_pl(request):
+    if request.method == 'DELETE':
+        try:
+            plN = request.GET.get('playlist')
+            if plN:
+                filePth = safe_join(music_dir, plN)
+            else:
+                return JsonResponse({'error': f'Не удалось прочитать путь'}, status=500)
+            if (not os.path.exists(filePth)):
+                return JsonResponse({'error': f'Плейлист с именем {plN}({filePth}) не существует'}, status=403)
+        except Exception as e:
+            return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
+        try:
+            shutil.rmtree(filePth, ignore_errors=True)
+            return JsonResponse({'success': f'Плейлист {plN} был успешно удалён!'}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': f'shutil не смог удалить плейлист [{e}]'}, status=500)
+    else:
+        return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
