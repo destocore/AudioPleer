@@ -101,6 +101,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    min-height: 31px;
 }
 
 .play-item:hover {
@@ -145,6 +146,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    min-height: 31px;
 }
 
 .track-item:hover {
@@ -196,6 +198,7 @@ body {
 
 .controls button:hover {
     color: #fff;
+    transform: scale(1.05);
 }
 
 .controls button:active {

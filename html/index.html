@@ -35,17 +35,29 @@
                 </div>
                 
                 {% if playlist %}
-                    {% for playlis in playlist %}
-                    <!-- Исправлено: теперь передается именно playlis текущей итерации -->
-                    <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
-                        <p>🎵 {{ playlis }}</p>
-                        <button class="delete-btn" onclick="event.stopPropagation(); confirmDeletePlaylist(this, '{{ playlis|escapejs }}')">❌</button>
-                    </div>
-                    {%empty%}
-                    <div class="track-empty-state">
-                        <p>Плейлист не найден</p>
-                    </div>
-                    {% endfor %}
+                    {%if aldelp%}
+                        {% for playlis in playlist %}
+                        <!-- Исправлено: теперь передается именно playlis текущей итерации -->
+                        <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
+                            <p>🎵 {{ playlis }}</p>
+                            <button class="delete-btn" onclick="event.stopPropagation(); confirmDeletePlaylist(this, '{{ playlis|escapejs }}')">❌</button>
+                        </div>
+                        {%empty%}
+                        <div class="track-empty-state">
+                            <p>Плейлист не найден</p>
+                        </div>
+                        {% endfor %}
+                    {%else%}
+                        {% for playlis in playlist %}
+                            <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
+                                <p>🎵 {{ playlis }}</p>
+                            </div>
+                        {%empty%}
+                        <div class="track-empty-state">
+                            <p>Плейлист не найден</p>
+                        </div>
+                        {% endfor %}
+                    {%endif%}
                 {% endif %}
             </div>
         </aside>
@@ -53,19 +65,31 @@
         <!-- Правая панель: Список треков (скроллится независимо) -->
         <main class="content-area">
             <div class="track-list">
-                {% for track in tracks %}
-                <!-- Теперь клик работает по всей площади строки с первого раза -->
-                <div class="track-item" onclick="playTrack({{ forloop.counter0 }})">
-                    <p>{{ track }}</p>
-                    
-                    <!-- event.stopPropagation() не даст запуститься функции playTrack при клике на крестик -->
-                    <button class="delete-btn" onclick="event.stopPropagation(); confirmDelete(this, '{{ track|escapejs }}', '{% if current_playlist %}{{ current_playlist|escapejs }}{% endif %}')">❌</button>
-                </div>
-                {% empty %}
-                    <div class="track-empty-state">
-                        <p>Музыка не найдена</p>
+                {%if aldelm%}
+                    {% for track in tracks %}
+                    <!-- Теперь клик работает по всей площади строки с первого раза -->
+                    <div class="track-item" onclick="playTrack({{ forloop.counter0 }})">
+                        <p>{{ track }}</p>
+                        
+                        <!-- event.stopPropagation() не даст запуститься функции playTrack при клике на крестик -->
+                        <button class="delete-btn" onclick="event.stopPropagation(); confirmDelete(this, '{{ track|escapejs }}', '{% if current_playlist %}{{ current_playlist|escapejs }}{% endif %}')">❌</button>
                     </div>
-                {% endfor %}
+                    {% empty %}
+                        <div class="track-empty-state">
+                            <p>Музыка не найдена</p>
+                        </div>
+                    {% endfor %}
+                {%else%}
+                    {% for track in tracks %}
+                    <div class="track-item" onclick="playTrack({{ forloop.counter0 }})">
+                        <p>{{ track }}</p>
+                    </div>
+                    {% empty %}
+                        <div class="track-empty-state">
+                            <p>Музыка не найдена</p>
+                        </div>
+                    {% endfor %}
+                {%endif%}
             </div>
         </main>
 
@@ -80,9 +104,9 @@
         <audio id="main-audio"></audio>
         <div class="controls">
             <button onclick="prevTrack()">⏮</button>
-            <button id="play-btn" onclick="togglePlay()">▶️</button>
+            <button id="play-btn" onclick="togglePlay()">▶</button>
             <button onclick="nextTrack()">⏭</button>
-            <button id="repeat-btn" onclick="changeRepeatMode()">➡️ Без повтора</button>
+            <button id="repeat-btn" onclick="changeRepeatMode()">→ Без повтора</button>
         </div>
         <div class="volume-control">
             <span>🔊</span>

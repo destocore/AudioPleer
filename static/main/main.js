@@ -47,7 +47,7 @@ function playTrack(idx) {
 function togglePlay() {
     if (!audio.src) { playTrack(0); return; }
     if (audio.paused) { audio.play(); playBtn.innerText = "⏸"; } 
-    else { audio.pause(); playBtn.innerText = "▶️"; }
+    else { audio.pause(); playBtn.innerText = "▶"; }
 }
 
 // ПЕРЕМОТКА ТРЕКА (Чистый код без дубликатов)
@@ -80,13 +80,13 @@ audio.ontimeupdate = () => {
 function changeRepeatMode() {
     if (repeatMode === 'list') {
         repeatMode = 'list-loop';
-        repeatBtn.innerText = "🔁 Весь список";
+        repeatBtn.innerText = "⟳ Весь список";
     } else if (repeatMode === 'list-loop') {
         repeatMode = 'one-loop';
-        repeatBtn.innerText = "🔂 Один трек";
+        repeatBtn.innerText = "⟲ Один трек";
     } else {
         repeatMode = 'list';
-        repeatBtn.innerText = "➡️ Без повтора";
+        repeatBtn.innerText = "→ Без повтора";
     }
 }
 
@@ -100,7 +100,7 @@ audio.onended = () => {
         if (currentIdx < tracksData.length - 1) {
             nextTrack();
         } else {
-            playBtn.innerText = "▶️"; 
+            playBtn.innerText = "▶"; 
         }
     }
 };
@@ -127,6 +127,11 @@ document.addEventListener("DOMContentLoaded", () => {
     searchInput.addEventListener("input", (event) => {
         const query = event.target.value.toLowerCase().trim();
         
+        // 🔒 ХИТРАЯ ПРОВЕРКА В JS:
+        // Смотрим, есть ли ХОТЬ ОДИН крестик на странице ДО очистки списка.
+        // Если Django отрендерил кнопку, значит удаление разрешено (true), если нет — (false).
+        const isDeletionAllowed = document.querySelector(".track-list .delete-btn") !== null;
+
         const filteredTracks = tracksData.filter(track => 
             track.name.toLowerCase().includes(query)
         );
@@ -141,9 +146,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // БЕЗОПАСНО ПОЛУЧАЕМ ИМЯ ПЛЕЙЛИСТА:
-        // Если у вас где-то выше объявлена переменная с плейлистом (например, в HTML), 
-        // проверяем её существование. Если её нет, берем пустую строку, чтобы Django-view не ругался.
         const playlistName = (typeof currentPlaylist !== 'undefined') ? currentPlaylist : '';
 
         filteredTracks.forEach((track) => {
@@ -155,21 +157,23 @@ document.addEventListener("DOMContentLoaded", () => {
             
             const trackText = document.createElement("p");
             trackText.textContent = track.name;
-
-            const trackDB = document.createElement('button');
-            trackDB.textContent = '❌';
-            trackDB.className = "delete-btn";
-            
-            trackDB.addEventListener('click', (event) => {
-                event.stopPropagation();
-                const safeTrackName = track.name.replace(/'/g, "\\'");
-                
-                // Исправлено: передаем локально вычисленное имя плейлиста 👇
-                confirmDelete(trackDB, safeTrackName, playlistName); 
-            });
-
             trackDiv.appendChild(trackText);
-            trackDiv.appendChild(trackDB);
+
+            // ИСПОЛЬЗУЕМ НАШУ ПРОВЕРКУ: создаем кнопку только если isDeletionAllowed равен true 👇
+            if (isDeletionAllowed) {
+                const trackDB = document.createElement('button');
+                trackDB.textContent = '❌';
+                trackDB.className = "delete-btn";
+                
+                trackDB.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    const safeTrackName = track.name.replace(/'/g, "\\'");
+                    confirmDelete(trackDB, safeTrackName, playlistName); 
+                });
+
+                trackDiv.appendChild(trackDB);
+            }
+
             trackListContainer.appendChild(trackDiv);
         });
     });

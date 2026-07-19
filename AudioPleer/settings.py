@@ -25,6 +25,11 @@ EXPORT = {
     "cache_mus": True,
 }
 
+ALLOW_DEL = {
+    "mus": True,
+    "playlist": True,
+}
+
 # [Data]
 
 VERSION = "1.1.4"

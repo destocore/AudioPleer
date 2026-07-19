@@ -37,7 +37,7 @@ def main(req):
     if os.path.exists(music_dir):
         playlist = [f for f in os.listdir(music_dir) if os.path.isdir(os.path.join(music_dir, f))]
     
-    return render(req, 'index.html', {'tracks': tracks, 'playlist': playlist, 'exst': settings.EXPORT["status"]})
+    return render(req, 'index.html', {'tracks': tracks, 'playlist': playlist, 'exst': settings.EXPORT["status"], 'aldelp': settings.ALLOW_DEL["playlist"], 'aldelm': settings.ALLOW_DEL["mus"]})
 
 def openPlaylist(req, playlist: str):
     tracks = []
@@ -51,7 +51,10 @@ def openPlaylist(req, playlist: str):
         return render(req, 'index.html', {
             'tracks': tracks, 
             'playlist': playlists_list, 
-            'current_playlist': playlist
+            'current_playlist': playlist,
+            'exst': settings.EXPORT["status"],
+            'aldelp': settings.ALLOW_DEL["playlist"],
+            'aldelm': settings.ALLOW_DEL["mus"]
         })
     raise Http404("Нету такого плейлиста")
 
@@ -183,48 +186,48 @@ def ExportSystem(req):
     return FileResponse(open(archP, 'rb'), as_attachment=True, filename='musiclist.zip')
 
 def delete_track(request):
-    if request.method == 'DELETE':
-        track_name = request.GET.get('track')       # Например: "song.mp3"
-        playlist_name = request.GET.get('playlist') # Например: "Rock" или None
+    if settings.ALLOW_DEL["mus"]:
+        if request.method == 'DELETE':
+            track_name = request.GET.get('track')       # Например: "song.mp3"
+            playlist_name = request.GET.get('playlist') # Например: "Rock" или None
 
-        # 1. Базовый путь к папке с музыкой (обычно внутри MEDIA_ROOT)
-        # Убедитесь, что в settings.py прописан MEDIA_ROOT
-        base_dir = os.path.join(settings.MEDIA_ROOT, 'music')
+            # 2. Если песня в плейлисте (в подпапке), добавляем имя папки
+            if playlist_name:
+                file_path = os.path.join(music_dir, playlist_name, track_name)
+            else:
+                file_path = os.path.join(music_dir, track_name)
 
-        # 2. Если песня в плейлисте (в подпапке), добавляем имя папки
-        if playlist_name:
-            file_path = os.path.join(base_dir, playlist_name, track_name)
-        else:
-            file_path = os.path.join(base_dir, track_name)
+            # 3. Проверяем существование файла и удаляем его
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    return JsonResponse({'status': 'deleted'})
+                except Exception as e:
+                    return JsonResponse({'error': f'Не удалось удалить файл: {str(e)}'}, status=500)
+            else:
+                return JsonResponse({'error': 'Файл не найден на сервере'}, status=404)
 
-        # 3. Проверяем существование файла и удаляем его
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-                return JsonResponse({'status': 'deleted'})
-            except Exception as e:
-                return JsonResponse({'error': f'Не удалось удалить файл: {str(e)}'}, status=500)
-        else:
-            return JsonResponse({'error': 'Файл не найден на сервере'}, status=404)
-
-    return JsonResponse({'error': 'Неверный метод запроса'}, status=400)
+        return JsonResponse({'error': 'Неверный метод запроса'}, status=400)
+    return JsonResponse({'fatalerror': 'Удалять музыку через сайт нельзя'}, status=403)
 
 def delete_pl(request):
-    if request.method == 'DELETE':
-        try:
-            plN = request.GET.get('playlist')
-            if plN:
-                filePth = safe_join(music_dir, plN)
-            else:
-                return JsonResponse({'error': f'Не удалось прочитать путь'}, status=500)
-            if (not os.path.exists(filePth)):
-                return JsonResponse({'error': f'Плейлист с именем {plN}({filePth}) не существует'}, status=403)
-        except Exception as e:
-            return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
-        try:
-            shutil.rmtree(filePth, ignore_errors=True)
-            return JsonResponse({'success': f'Плейлист {plN} был успешно удалён!'}, status=200)
-        except Exception as e:
-            return JsonResponse({'error': f'shutil не смог удалить плейлист [{e}]'}, status=500)
-    else:
-        return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+    if settings.ALLOW_DEL["playlist"]:
+        if request.method == 'DELETE':
+            try:
+                plN = request.GET.get('playlist')
+                if plN:
+                    filePth = safe_join(music_dir, plN)
+                else:
+                    return JsonResponse({'error': f'Не удалось прочитать путь'}, status=500)
+                if (not os.path.exists(filePth)):
+                    return JsonResponse({'error': f'Плейлист с именем {plN}({filePth}) не существует'}, status=403)
+            except Exception as e:
+                return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
+            try:
+                shutil.rmtree(filePth, ignore_errors=True)
+                return JsonResponse({'success': f'Плейлист {plN} был успешно удалён!'}, status=200)
+            except Exception as e:
+                return JsonResponse({'error': f'shutil не смог удалить плейлист [{e}]'}, status=500)
+        else:
+            return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+    return JsonResponse({'fatalerror': 'Удалять плейлист через сайт нельзя'}, status=403)
