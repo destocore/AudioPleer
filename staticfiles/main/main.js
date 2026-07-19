@@ -122,21 +122,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("search-input");
     const trackListContainer = document.querySelector(".track-list");
 
-    // Проверяем, что элементы существуют на странице
     if (!searchInput || !trackListContainer) return;
 
     searchInput.addEventListener("input", (event) => {
         const query = event.target.value.toLowerCase().trim();
         
-        // 1. Фильтруем массив треков
         const filteredTracks = tracksData.filter(track => 
             track.name.toLowerCase().includes(query)
         );
 
-        // 2. Очищаем текущий список отображаемых треков
         trackListContainer.innerHTML = "";
 
-        // 3. Если ничего не найдено, выводим пустое состояние
         if (filteredTracks.length === 0) {
             trackListContainer.innerHTML = `
                 <div class="track-empty-state">
@@ -145,9 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // 4. Отрисовываем найденные треки
         filteredTracks.forEach((track) => {
-            // Находим оригинальный индекс трека в tracksData для корректной работы playTrack()
             const originalIndex = tracksData.findIndex(t => t.url === track.url);
 
             const trackDiv = document.createElement("div");
@@ -157,11 +151,23 @@ document.addEventListener("DOMContentLoaded", () => {
             const trackText = document.createElement("p");
             trackText.textContent = track.name;
 
+            const trackDB = document.createElement('button');
+            trackDB.textContent = '❌';
+            trackDB.className = "delete-btn";
+            
+            trackDB.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const safeTrackName = track.name.replace(/'/g, "\\'");
+                confirmDelete(trackDB, safeTrackName, currentPlaylist); 
+            });
+
             trackDiv.appendChild(trackText);
+            trackDiv.appendChild(trackDB);
             trackListContainer.appendChild(trackDiv);
         });
     });
 });
+
 function confirmDelete(buttonElement, trackName, playlistName) {
     const isConfirmed = confirm(`Вы точно хотите удалить песню "${trackName}"?`);
     
