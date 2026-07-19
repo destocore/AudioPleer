@@ -15,12 +15,26 @@ const titleDisplay = document.getElementById('current-title');
 
 // 1. При загрузке страницы проверяем, есть ли сохраненная громкость
 const savedVolume = localStorage.getItem('player-volume');
+const savedRepeat = localStorage.getItem('repeatMode')
 
 if (savedVolume !== null) {
     volumeBar.value = savedVolume;              // Визуально двигаем ползунок на место
     audio.volume = parseFloat(savedVolume) / 100; // Устанавливаем громкость звука (от 0.0 до 1.0)
 } else {
     audio.volume = volumeBar.value / 100;       // Если первый заход — берем дефолт из HTML (100)
+}
+
+if (savedRepeat !== null){
+    repeatMode = savedRepeat;
+    list = null
+    if (repeatMode === 'list') {
+        list = "→ Без повтора";
+    } else if (repeatMode === 'list-loop') {
+        list = "⟳ Весь список";
+    } else {
+        list = "⟲ Один трек";
+    }
+    repeatBtn.innerText = list;
 }
 
 // 2. Слушаем изменения ползунка и сохраняем в память
@@ -88,6 +102,9 @@ function changeRepeatMode() {
         repeatMode = 'list';
         repeatBtn.innerText = "→ Без повтора";
     }
+    
+    // ВОТ ЭТА СТРОКА ОБЯЗАТЕЛЬНА, чтобы данные записывались в браузер при клике:
+    localStorage.setItem('repeatMode', repeatMode);
 }
 
 // ЛОГИКА ОКОНЧАНИЯ ТРЕКА
