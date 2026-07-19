@@ -32,7 +32,7 @@ ALLOW_DEL = {
 
 # [Data]
 
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 
 # [Site settings]
 
