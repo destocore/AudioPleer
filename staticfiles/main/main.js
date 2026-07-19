@@ -141,6 +141,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // БЕЗОПАСНО ПОЛУЧАЕМ ИМЯ ПЛЕЙЛИСТА:
+        // Если у вас где-то выше объявлена переменная с плейлистом (например, в HTML), 
+        // проверяем её существование. Если её нет, берем пустую строку, чтобы Django-view не ругался.
+        const playlistName = (typeof currentPlaylist !== 'undefined') ? currentPlaylist : '';
+
         filteredTracks.forEach((track) => {
             const originalIndex = tracksData.findIndex(t => t.url === track.url);
 
@@ -158,7 +163,9 @@ document.addEventListener("DOMContentLoaded", () => {
             trackDB.addEventListener('click', (event) => {
                 event.stopPropagation();
                 const safeTrackName = track.name.replace(/'/g, "\\'");
-                confirmDelete(trackDB, safeTrackName, currentPlaylist); 
+                
+                // Исправлено: передаем локально вычисленное имя плейлиста 👇
+                confirmDelete(trackDB, safeTrackName, playlistName); 
             });
 
             trackDiv.appendChild(trackText);
@@ -172,27 +179,22 @@ function confirmDelete(buttonElement, trackName, playlistName) {
     const isConfirmed = confirm(`Вы точно хотите удалить песню "${trackName}"?`);
     
     if (isConfirmed) {
-        // Формируем URL для отправки скрытого запроса
         let deleteUrl = `/delete-track/?track=${encodeURIComponent(trackName)}`;
         if (playlistName) {
             deleteUrl += `&playlist=${encodeURIComponent(playlistName)}`;
         }
         
-        // Отправляем скрытый запрос на сервер
         fetch(deleteUrl, {
-            method: 'DELETE', // Или 'POST', в зависимости от вашего Django view
+            method: 'DELETE', 
             headers: {
-                // Защита Django от подделки запросов (CSRF)
                 'X-CSRFToken': getCookie('csrftoken') 
             }
         })
         .then(response => {
             if (response.ok) {
-                // Находим всю строку трека и удаляем её из HTML прямо сейчас
                 const trackItem = buttonElement.closest('.track-item');
                 trackItem.remove();
                 
-                // Опционально: если треков больше нет, можно показать "Музыка не найдена"
                 const trackList = document.querySelector('.track-list');
                 if (trackList.children.length === 0) {
                     trackList.innerHTML = '<div class="track-empty-state"><p>Музыка не найдена</p></div>';
