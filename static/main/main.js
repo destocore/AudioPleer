@@ -141,18 +141,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!searchInput || !trackListContainer) return;
 
+    // 🔒 ГИБКИЙ КОНФИГ РАЗРЕШЕНИЙ (Считываем один раз при загрузке страницы)
+    // Ищем признаки того, что Django разрешил те или иные действия
+    const allowedActions = {
+        delete: document.querySelector(".track-list .delete-btn[onclick*='confirmDelete']") !== null,
+        rename: document.querySelector(".track-list .delete-btn[onclick*='rename']") !== null
+        // 💡 Сюда можно легко дописать новое разрешение в будущем, например:
+        // download: document.querySelector(".track-list .download-btn") !== null
+    };
+
     searchInput.addEventListener("input", (event) => {
         const query = event.target.value.toLowerCase().trim();
-        
-        // 🔒 ХИТРАЯ ПРОВЕРКА В JS:
-        // Смотрим, есть ли ХОТЬ ОДИН крестик на странице ДО очистки списка.
-        // Если Django отрендерил кнопку, значит удаление разрешено (true), если нет — (false).
-        const isDeletionAllowed = document.querySelector(".track-list .delete-btn") !== null;
+        const playlistName = (typeof currentPlaylist !== 'undefined') ? currentPlaylist : '';
 
+        // Фильтруем массив треков
         const filteredTracks = tracksData.filter(track => 
             track.name.toLowerCase().includes(query)
         );
 
+        // Очищаем контейнер
         trackListContainer.innerHTML = "";
 
         if (filteredTracks.length === 0) {
@@ -163,32 +170,55 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const playlistName = (typeof currentPlaylist !== 'undefined') ? currentPlaylist : '';
-
         filteredTracks.forEach((track) => {
             const originalIndex = tracksData.findIndex(t => t.url === track.url);
 
+            // Создаем обертку трека
             const trackDiv = document.createElement("div");
             trackDiv.className = "track-item";
             trackDiv.setAttribute("onclick", `playTrack(${originalIndex})`);
             
+            // Название трека
             const trackText = document.createElement("p");
             trackText.textContent = track.name;
             trackDiv.appendChild(trackText);
 
-            // ИСПОЛЬЗУЕМ НАШУ ПРОВЕРКУ: создаем кнопку только если isDeletionAllowed равен true 👇
-            if (isDeletionAllowed) {
-                const trackDB = document.createElement('button');
-                trackDB.textContent = '❌';
-                trackDB.className = "delete-btn";
-                
-                trackDB.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    const safeTrackName = track.name.replace(/'/g, "\\'");
-                    confirmDelete(trackDB, safeTrackName, playlistName); 
-                });
+            // 🛠️ ДИНАМИЧЕСКИЙ БЛОК КНОПОК (Если разрешено хоть что-то)
+            if (allowedActions.delete || allowedActions.rename) {
+                // Создаем правильный контейнер для кнопок, чтобы работали стили плагина
+                const buttonsContainer = document.createElement("div");
+                buttonsContainer.className = "buttons-container"; 
+                buttonsContainer.id = "buttons"; // Совместимость со старой версткой
 
-                trackDiv.appendChild(trackDB);
+                // 1. Кнопка удаления ❌
+                if (allowedActions.delete) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = '❌';
+                    deleteBtn.className = "delete-btn";
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const safeTrackName = track.name.replace(/'/g, "\\'");
+                        confirmDelete(deleteBtn, safeTrackName, playlistName); 
+                    });
+                    buttonsContainer.appendChild(deleteBtn);
+                }
+
+                // 2. Кнопка переименования ✏️
+                if (allowedActions.rename) {
+                    const renameBtn = document.createElement('button');
+                    renameBtn.textContent = '✏️';
+                    renameBtn.className = "delete-btn"; // Твой класс для стилей кнопок
+                    renameBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Вызываем нашу функцию плагина, передавая саму кнопку и тип
+                        rename(renameBtn, 'mus'); 
+                    });
+                    buttonsContainer.appendChild(renameBtn);
+                }
+
+                // 💡 Сюда ты сможешь вписать "if (allowedActions.download) { ... }" в V2 или V3
+
+                trackDiv.appendChild(buttonsContainer);
             }
 
             trackListContainer.appendChild(trackDiv);
