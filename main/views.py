@@ -29,6 +29,8 @@ def main(req):
         if needUpd():
             shup = True
             return render(req, "updt.html")
+        else:
+            shup = False
     # Список имен файлов (только файлы, исключая папки)
     tracks = []
     if os.path.exists(music_dir):
