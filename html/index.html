@@ -33,31 +33,26 @@
                 <div class="play-item backend-link" onclick="window.location.href='/';">
                     <p>🏠 Главная</p>
                 </div>
-                
                 {% if playlist %}
-                    {%if aldelp%}
                         {% for playlis in playlist %}
-                        <!-- Исправлено: теперь передается именно playlis текущей итерации -->
                         <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
                             <p>🎵 {{ playlis }}</p>
-                            <button class="delete-btn" onclick="event.stopPropagation(); confirmDeletePlaylist(this, '{{ playlis|escapejs }}')">❌</button>
-                        </div>
-                        {%empty%}
-                        <div class="track-empty-state">
-                            <p>Плейлист не найден</p>
-                        </div>
-                        {% endfor %}
-                    {%else%}
-                        {% for playlis in playlist %}
-                            <div class="play-item" onclick="window.location.href='/playlist/{{ playlis }}';">
-                                <p>🎵 {{ playlis }}</p>
+                            {% if aldelp or alrep %}
+                            <div id="buttons">
+                                {% if aldelp %}
+                                <button class="delete-btn" onclick="event.stopPropagation(); confirmDeletePlaylist(this, '{{ playlis|escapejs }}')">❌</button>
+                                {% endif %}
+                                {% if alrep %}
+                                <button class="delete-btn" onclick="event.stopPropagation(); rename(this, 'playlist')">✏️</button>
+                                {% endif %}
                             </div>
+                            {%endif%}
+                        </div>
                         {%empty%}
                         <div class="track-empty-state">
                             <p>Плейлист не найден</p>
                         </div>
                         {% endfor %}
-                    {%endif%}
                 {% endif %}
             </div>
         </aside>
@@ -65,31 +60,26 @@
         <!-- Правая панель: Список треков (скроллится независимо) -->
         <main class="content-area">
             <div class="track-list">
-                {%if aldelm%}
                     {% for track in tracks %}
                     <!-- Теперь клик работает по всей площади строки с первого раза -->
                     <div class="track-item" onclick="playTrack({{ forloop.counter0 }})">
                         <p>{{ track }}</p>
-                        
-                        <!-- event.stopPropagation() не даст запуститься функции playTrack при клике на крестик -->
-                        <button class="delete-btn" onclick="event.stopPropagation(); confirmDelete(this, '{{ track|escapejs }}', '{% if current_playlist %}{{ current_playlist|escapejs }}{% endif %}')">❌</button>
+                        {% if aldelm or alrem %}
+                        <div id="buttons">
+                            {%if aldelm%}
+                            <button class="delete-btn" onclick="event.stopPropagation(); confirmDelete(this, '{{ track|escapejs }}', '{% if current_playlist %}{{ current_playlist|escapejs }}{% endif %}')">❌</button>
+                            {%endif%}
+                            {% if alrem %}
+                            <button class="delete-btn" onclick="event.stopPropagation(); rename(this, 'mus')">✏️</button>
+                            {%endif%}
+                        </div>
+                        {%endif%}
                     </div>
                     {% empty %}
                         <div class="track-empty-state">
                             <p>Музыка не найдена</p>
                         </div>
                     {% endfor %}
-                {%else%}
-                    {% for track in tracks %}
-                    <div class="track-item" onclick="playTrack({{ forloop.counter0 }})">
-                        <p>{{ track }}</p>
-                    </div>
-                    {% empty %}
-                        <div class="track-empty-state">
-                            <p>Музыка не найдена</p>
-                        </div>
-                    {% endfor %}
-                {%endif%}
             </div>
         </main>
 

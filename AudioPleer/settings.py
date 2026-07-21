@@ -30,6 +30,11 @@ ALLOW_DEL = {
     "playlist": True,
 }
 
+ALLOW_REN = {
+    "mus": True,
+    "playlist": True,
+}
+
 # [Data]
 
 VERSION = "1.1.5"
@@ -43,9 +48,9 @@ VERSION = "1.1.5"
 SECRET_KEY = 'django-insecure-72m=72-p=^d#^u3gsx%4dcx57_hr3td-+^nem79t9v)bk03q=f'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"] #можете это всё поменять на "*" или свой айпи\домен для открытия сайта в публичный и так в приватном доступе
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"] #можете это всё поменять на "*" или свой айпи\домен для открытия сайта в публичный и так в приватном доступе(как в этом случае)
 
 
 # Application definition
@@ -148,7 +153,7 @@ SESSION_COOKIE_AGE = 43200
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'statice'] 
+STATICFILES_DIRS = [BASE_DIR / 'static'] 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 

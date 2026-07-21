@@ -264,6 +264,201 @@ function confirmDeletePlaylist(buttonE, playlistN) {
     }
 }
 
+function rename(buttonE, type) {
+    if (type === "playlist") {
+        const divv = buttonE.closest('.play-item'); 
+        if (!divv) return;
+
+        const textt = divv.querySelector('p');
+        if (!textt) return;
+
+        const oldtextt = textt.textContent;
+        // Очищаем старое имя от смайликов для отправки в Django
+        const oldCleanName = oldtextt.replace(/[📁🎵🏠]/g, '').trim(); 
+        
+        const Buttns = divv.querySelector('#buttons');
+        const originalDisplay = Buttns ? (Buttns.style.display || 'flex') : 'flex'; 
+        if (Buttns) Buttns.style.display = 'none';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'edit-input'; 
+        input.value = oldCleanName; 
+
+        input.addEventListener('click', (e) => e.stopPropagation());
+
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation(); 
+                input.blur(); 
+            }
+        });
+
+        input.addEventListener('blur', (event) => {
+            event.stopPropagation();
+
+            if (Buttns) Buttns.style.display = originalDisplay;
+
+            const finalValue = input.value.trim();
+            const newTextContent = `🎵 ${finalValue}`;
+
+            if (newTextContent === oldtextt) {
+                input.replaceWith(textt);
+                return;
+            }
+
+            const newP = document.createElement('p');
+            newP.textContent = newTextContent;
+            input.replaceWith(newP);
+
+            // ИСПРАВЛЕНО 1: Разделение через '&' вместо '?'
+            // ИСПРАВЛЕНО 3: Передаем чистые имена без смайликов
+            const URLrename = `/rename-pl/?playlist=${encodeURIComponent(oldCleanName)}&new_name=${encodeURIComponent(finalValue)}`;
+            
+            // ИСПРАВЛЕНО 2: Используем метод POST вместо выдуманного RENAME
+            fetch(URLrename, {
+                method: 'RENAME', 
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken') 
+                }
+            })
+            .then(response => {
+                if (response.ok){
+                    window.location.href = `/playlist/${finalValue}`;
+                } else {
+                    alert('Произошла ошибка на сервере!');
+                    // Если сервер ответил ошибкой, возвращаем старый текст
+                    newP.replaceWith(textt);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка сети:', error);
+                alert('Не удалось связаться с сервером');
+                newP.replaceWith(textt);
+            });
+        });
+
+        textt.replaceWith(input);
+        input.focus();
+    }
+    if (type === "mus") {
+        // 1. Находим строку трека
+        const divv = buttonE.closest('.track-item'); 
+        if (!divv) return;
+
+        const textt = divv.querySelector('p');
+        if (!textt) return;
+
+        const oldtextt = textt.textContent.trim();
+        const oldCleanName = oldtextt.replace('.mp3', '').trim(); 
+        
+        // Прячем кнопки на время редактирования
+        const Buttns = divv.querySelector('#buttons') || divv.querySelector('.buttons-container');
+        const originalDisplay = Buttns ? (Buttns.style.display || 'flex') : 'flex'; 
+        if (Buttns) Buttns.style.display = 'none';
+
+        // Создаем инпут
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'edit-input'; 
+        input.value = oldCleanName; 
+
+        input.addEventListener('click', (e) => e.stopPropagation());
+
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation(); 
+                input.blur(); 
+            }
+        });
+
+        // Обработка потери фокуса (сохранение)
+        input.addEventListener('blur', (event) => {
+            event.stopPropagation();
+
+            if (Buttns) Buttns.style.display = originalDisplay;
+
+            const finalValue = input.value.trim();
+            const newTextContent = finalValue.endsWith('.mp3') ? finalValue : `${finalValue}.mp3`;
+
+            // Если имя не изменилось — просто возвращаем текст назад
+            if (newTextContent === oldtextt) {
+                input.replaceWith(textt);
+                return;
+            }
+
+            const newP = document.createElement('p');
+            newP.textContent = newTextContent; 
+            input.replaceWith(newP);
+
+            // Вытаскиваем имя плейлиста из URL
+            const currentPlaylist = window.location.pathname.split('/').filter(Boolean).pop();
+            let URLrename;
+
+            if (currentPlaylist && window.location.pathname.includes('/playlist/')) {
+                URLrename = `/rename-mus/?playlist=${encodeURIComponent(currentPlaylist)}&mus=${encodeURIComponent(oldCleanName)}&new_name=${encodeURIComponent(finalValue)}`;
+            } else {
+                URLrename = `/rename-mus/?mus=${encodeURIComponent(oldCleanName)}&new_name=${encodeURIComponent(finalValue)}`;
+            }
+            
+            // ==========================================
+            // ВОТ ЭТОТ КУСОК КОДА ВСТАВЛЯЕТСЯ СЮДА:
+            // ==========================================
+            fetch(URLrename, {
+                method: 'RENAME', 
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken') 
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // УСПЕХ: Обновляем данные в массиве плеера без перезагрузки страницы
+                    const onclickAttr = divv.getAttribute('onclick');
+                    const match = onclickAttr ? onclickAttr.match(/playTrack\((\d+)\)/) : null;
+                    
+                    if (match && match[1]) {
+                        const trackIndex = parseInt(match[1], 10);
+
+                        if (typeof tracksData !== 'undefined' && tracksData[trackIndex]) {
+                            const oldUrl = tracksData[trackIndex].url;
+                            
+                            // Меняем старое закодированное имя на новое в ссылке
+                            const newUrl = oldUrl.replace(encodeURIComponent(oldCleanName), encodeURIComponent(finalValue));
+
+                            // Записываем новые данные в глобальный массив
+                            tracksData[trackIndex].name = newTextContent;
+                            tracksData[trackIndex].url = newUrl;
+
+                            console.log(`Данные трека #${trackIndex} в плеере успешно обновлены!`);
+                            
+                            // Если этот трек играет прямо сейчас, обновляем название в плеере на ходу
+                            if (typeof currentIdx !== 'undefined' && currentIdx === trackIndex) {
+                                if (typeof titleDisplay !== 'undefined') {
+                                    titleDisplay.innerText = newTextContent;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    alert('Произошла ошибка на сервере!');
+                    newP.replaceWith(textt);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка сети:', error);
+                alert('Не удалось связаться с сервером');
+                newP.replaceWith(textt);
+            });
+            // ==========================================
+        });
+
+        // Активируем инпут
+        textt.replaceWith(input);
+        input.focus();
+    }
+}
 
 // Вспомогательная функция для получения CSRF-токена Django
 function getCookie(name) {

@@ -7,6 +7,7 @@ from pytubefix import YouTube
 import requests
 import shutil
 from django.utils._os import safe_join
+from urllib.parse import unquote
 
 shup = False
 
@@ -37,7 +38,16 @@ def main(req):
     if os.path.exists(music_dir):
         playlist = [f for f in os.listdir(music_dir) if os.path.isdir(os.path.join(music_dir, f))]
     
-    return render(req, 'index.html', {'tracks': tracks, 'playlist': playlist, 'exst': settings.EXPORT["status"], 'aldelp': settings.ALLOW_DEL["playlist"], 'aldelm': settings.ALLOW_DEL["mus"]})
+    return render(req, 'index.html', {
+            'tracks': tracks,
+            'playlist': playlist,
+            'exst': settings.EXPORT["status"],
+            'aldelp': settings.ALLOW_DEL["playlist"],
+            'aldelm': settings.ALLOW_DEL["mus"],
+            'alrep': settings.ALLOW_REN["playlist"],
+            'alrem': settings.ALLOW_REN["mus"],
+        }
+    )
 
 def openPlaylist(req, playlist: str):
     tracks = []
@@ -54,7 +64,9 @@ def openPlaylist(req, playlist: str):
             'current_playlist': playlist,
             'exst': settings.EXPORT["status"],
             'aldelp': settings.ALLOW_DEL["playlist"],
-            'aldelm': settings.ALLOW_DEL["mus"]
+            'aldelm': settings.ALLOW_DEL["mus"],
+            'alrep': settings.ALLOW_REN["playlist"],
+            'alrem': settings.ALLOW_REN["mus"],
         })
     raise Http404("Нету такого плейлиста")
 
@@ -230,4 +242,77 @@ def delete_pl(request):
                 return JsonResponse({'error': f'shutil не смог удалить плейлист [{e}]'}, status=500)
         else:
             return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
-    return JsonResponse({'fatalerror': 'Удалять плейлист через сайт нельзя'}, status=403)
+    else:
+        return JsonResponse({'fatalerror': 'Удалять плейлист через сайт нельзя'}, status=403)
+
+def rename_pl(req):
+    if settings.ALLOW_REN["playlist"]:
+        if req.method == 'RENAME':
+            try:
+                plN = req.GET.get('playlist')
+                NN = req.GET.get('new_name')
+                if not NN:
+                    return JsonResponse({'error': 'Нету имени для переименования'}, status=403)
+                if plN:
+                    filePth = safe_join(music_dir, plN)
+                else:
+                    return JsonResponse({'error': f'Не удалось прочитать путь'}, status=500)
+                if (not os.path.exists(filePth)):
+                    return JsonResponse({'error': f'Плейлист с именем {plN}({filePth}) не существует'}, status=403)
+            except Exception as e:
+                return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
+            try:
+                os.rename(filePth, safe_join(music_dir, NN))
+                return JsonResponse({'success': f'Плейлист {plN} был успешно переименён!'}, status=200)
+            except Exception as e:
+                return JsonResponse({'error': f'os не смог переименовать плейлист [{e}]'}, status=500)
+        else:
+            return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+    else:
+        return JsonResponse({'fatalerror': 'Переименовывать плейлист через сайт нельзя'}, status=403)
+
+def rename_mus(req):
+    if settings.ALLOW_REN["mus"]:
+        if req.method == 'RENAME':
+            try:
+                # ИСПРАВЛЕНО: Принудительно декодируем пробелы (%20) и кириллицу (%D0...) в нормальный текст
+                musN = unquote(req.GET.get('mus', ''))
+                plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
+                NN = unquote(req.GET.get('new_name', ''))
+                
+                if not NN:
+                    return JsonResponse({'error': 'Нету имени для переименования'}, status=403)
+                
+                # Подстраховка по расширениям (работает уже с чистым текстом)
+                if musN and not musN.endswith('.mp3'):
+                    musN = f"{musN}.mp3"
+                if NN and not NN.endswith('.mp3'):
+                    NN = f"{NN}.mp3"
+                
+                if musN:
+                    if plN:
+                        filePth = safe_join(music_dir, plN, musN)
+                        nfilepth = safe_join(music_dir, plN, NN)
+                    else:
+                        filePth = safe_join(music_dir, musN)
+                        nfilepth = safe_join(music_dir, NN)
+                else:
+                    return JsonResponse({'error': 'Не указано имя исходного файла'}, status=400)
+                
+                if not os.path.exists(filePth):
+                    return JsonResponse({'error': f'Музыка с именем {musN} не существует'}, status=404)
+                if os.path.exists(nfilepth):
+                    return JsonResponse({'error': f'Музыка с именем {NN} уже существует'}, status=403)
+                    
+            except Exception as e:
+                return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
+                
+            try:
+                os.rename(filePth, nfilepth)
+                return JsonResponse({'success': f'Музыка {musN} была успешно переименована!'}, status=200)
+            except Exception as e:
+                return JsonResponse({'error': f'os не смог переименовать музыку [{e}]'}, status=500)
+        else:
+            return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+    else:
+        return JsonResponse({'fatalerror': 'Переименовывать музыку через сайт нельзя'}, status=403)

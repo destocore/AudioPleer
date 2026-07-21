@@ -440,3 +440,28 @@ input[type="range"]::-webkit-slider-thumb {
 .delete-btn:hover {
     transform: scale(1.2); /* Слегка увеличивается при наведении */
 }
+
+/* Автоматические стили для инпутов переименования треков и плейлистов */
+.track-item input[type="text"],
+.play-item input[type="text"] {
+    width: 100%;
+    max-width: 300px; /* Чтобы инпут не распирал строку на весь экран */
+    background-color: #1a1a1a; /* Темный фон */
+    border: 1px solid #333; /* Аккуратная серая рамка */
+    color: #efefef; /* Светлый текст */
+    padding: 6px 12px; /* Компактные отступы, чтобы высота строки не прыгала */
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    border-radius: 6px; /* Закругление углов */
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Фирменная зеленая подсветка при клике */
+.track-item input[type="text"]:focus,
+.play-item input[type="text"]:focus {
+    border-color: #1DB954; /* Цвет как у .dow:focus */
+    box-shadow: 0 0 5px rgba(29, 185, 84, 0.3); /* Легкое зеленое свечение */
+}
