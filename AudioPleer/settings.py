@@ -37,7 +37,7 @@ ALLOW_REN = {
 
 # [Data]
 
-VERSION = "1.1.5"
+VERSION = "1.1.6"
 
 # [Site settings]
 
@@ -48,7 +48,7 @@ VERSION = "1.1.5"
 SECRET_KEY = 'django-insecure-72m=72-p=^d#^u3gsx%4dcx57_hr3td-+^nem79t9v)bk03q=f'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"] #можете это всё поменять на "*" или свой айпи\домен для открытия сайта в публичный и так в приватном доступе(как в этом случае)
 

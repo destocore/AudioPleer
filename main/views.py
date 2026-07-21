@@ -269,7 +269,7 @@ def rename_pl(req):
         else:
             return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
     else:
-        return JsonResponse({'fatalerror': 'Переименовывать плейлист через сайт нельзя'}, status=403)
+        return JsonResponse({'fatalerror': 'Переименовать плейлист через сайт нельзя'}, status=403)
 
 def rename_mus(req):
     if settings.ALLOW_REN["mus"]:
@@ -315,4 +315,4 @@ def rename_mus(req):
         else:
             return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
     else:
-        return JsonResponse({'fatalerror': 'Переименовывать музыку через сайт нельзя'}, status=403)
+        return JsonResponse({'fatalerror': 'Переименовать музыку через сайт нельзя'}, status=403)
