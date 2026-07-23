@@ -29,6 +29,7 @@ urlpatterns = [
     path('delete-pl/', views.delete_pl, name='delete_pl'),
     path('rename-pl/', views.rename_pl, name='rename-pl'),
     path('rename-mus/', views.rename_mus, name='rename-mus'),
+    path('replace-mus/', views.replace, name="replace"),
 
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),

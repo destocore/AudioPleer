@@ -145,7 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // Ищем признаки того, что Django разрешил те или иные действия
     const allowedActions = {
         delete: document.querySelector(".track-list .delete-btn[onclick*='confirmDelete']") !== null,
-        rename: document.querySelector(".track-list .delete-btn[onclick*='rename']") !== null
+        rename: document.querySelector(".track-list .delete-btn[onclick*='rename']") !== null,
+        replace: document.querySelector(".track-list .delete-btn[onclick*='replace']") !== null
         // 💡 Сюда можно легко дописать новое разрешение в будущем, например:
         // download: document.querySelector(".track-list .download-btn") !== null
     };
@@ -214,6 +215,18 @@ document.addEventListener("DOMContentLoaded", () => {
                         rename(renameBtn, 'mus'); 
                     });
                     buttonsContainer.appendChild(renameBtn);
+                }
+
+                if (allowedActions.replace) {
+                    const replaceBtn = document.createElement('button');
+                    replaceBtn.textContent = '⇆';
+                    replaceBtn.className = "delete-btn"; // Твой класс для стилей кнопок
+                    replaceBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Вызываем нашу функцию плагина, передавая саму кнопку и тип
+                        replace(replaceBtn);
+                    });
+                    buttonsContainer.appendChild(replaceBtn);
                 }
 
                 // 💡 Сюда ты сможешь вписать "if (allowedActions.download) { ... }" в V2 или V3
@@ -488,6 +501,163 @@ function rename(buttonE, type) {
         textt.replaceWith(input);
         input.focus();
     }
+}
+
+function replace(butn) {
+    const divv = butn.closest('.track-item');
+    if (!divv) return;
+    
+    const obname = divv.querySelector('p');
+    if (!obname) return;
+    const name = obname.textContent.trim();
+
+    const playlistElements = document.querySelectorAll('.sidebar .play-item p');
+    
+    const select = document.createElement('select');
+    select.className = 'replace-select';
+
+    const rootOption = document.createElement('option');
+    rootOption.value = ""; 
+    rootOption.textContent = "---> Выберите плейлист здесь <---";
+    select.appendChild(rootOption);
+
+    const rootOption1 = document.createElement('option');
+    rootOption1.value = ""; 
+    rootOption1.textContent = "🏠 Главная (Корень)";
+    select.appendChild(rootOption1);
+    
+    playlistElements.forEach(p => {
+        const text = p.textContent.trim();
+        if (text.includes('🏠')) return; 
+
+        const cleanPlaylistName = text.replace(/[📁🎵🏠]/g, '').trim();
+
+        const option = document.createElement('option');
+        option.value = cleanPlaylistName;
+        option.textContent = text;
+        select.appendChild(option);
+    });
+
+    select.addEventListener('click', (e) => e.stopPropagation());
+
+    // ФЛАГ-ЗАЩИТА: предотвращает конфликт между blur и fetch
+    let isProcessing = false;
+
+    select.addEventListener('change', () => {
+        isProcessing = true; // Блокируем стандартный blur, так как пошел запрос
+        
+        const finalValue = select.value; 
+        const currentPlaylist = window.location.pathname.split('/').filter(Boolean).pop();
+        let URLrename;
+
+        const cleanTrackName = name.replace('.mp3', '').trim();
+
+        // Если мы переносим в тот же плейлист, где песня уже лежит — даже не шлем запрос
+        if (currentPlaylist === finalValue || (!currentPlaylist && finalValue === "")) {
+            isProcessing = false;
+            select.replaceWith(obname); // Просто возвращаем текст обратно
+            return;
+        }
+
+        if (currentPlaylist && window.location.pathname.includes('/playlist/')) {
+            URLrename = `/replace-mus/?playlist=${encodeURIComponent(currentPlaylist)}&mus=${encodeURIComponent(cleanTrackName)}&new_pl=${encodeURIComponent(finalValue)}`;
+        } else {
+            URLrename = `/replace-mus/?mus=${encodeURIComponent(cleanTrackName)}&new_pl=${encodeURIComponent(finalValue)}`;
+        }
+        
+        audio.pause();
+        
+        fetch(URLrename, {
+            method: 'REPLACE', 
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') 
+            }
+        }) 
+        .then(response => {
+            if (response.ok) {
+                // ========================================================
+                // ⚙️ НАЧАЛО БЛОКА ОЧИСТКИ ПАМЯТИ ПЛЕЕРА
+                // ========================================================
+                
+                // 1. Вытаскиваем индекс удаляемого трека из его onclick атрибута
+                const onclickAttr = divv.getAttribute('onclick');
+                const match = onclickAttr ? onclickAttr.match(/playTrack\((\d+)\)/) : null;
+                
+                if (match) {
+                    const trackIndex = parseInt(match[1], 10);
+                    
+                    // 2. Полностью вырезаем песню из глобального массива
+                    if (typeof tracksData !== 'undefined' && tracksData[trackIndex]) {
+                        tracksData.splice(trackIndex, 1);
+                        
+                        // 3. Сдвигаем playTrack(idx) на единицу назад у всех треков ниже по списку в HTML
+                        const allTrackItems = document.querySelectorAll('.track-list .track-item');
+                        allTrackItems.forEach(item => {
+                            const itemOnclick = item.getAttribute('onclick');
+                            const itemMatch = itemOnclick ? itemOnclick.match(/playTrack\((\d+)\)/) : null;
+                            if (itemMatch) {
+                                const idx = parseInt(itemMatch[1], 10);
+                                if (idx > trackIndex) {
+                                    item.setAttribute('onclick', `playTrack(${idx - 1})`);
+                                }
+                            }
+                        });
+
+                        // 4. Корректируем индекс текущего трека (currentIdx), чтобы prev/next не ломались
+                        if (typeof currentIdx !== 'undefined') {
+                            if (currentIdx > trackIndex) {
+                                // Если убрали трек, бывший ДО текущего — сдвигаем указатель назад
+                                currentIdx--;
+                            } else if (currentIdx === trackIndex) {
+                                // Если убрали песню, которая играет прямо сейчас — сдвигаем назад,
+                                // чтобы функция nextTrack() включила правильный следующий трек
+                                currentIdx--; 
+                            }
+                        }
+                    }
+                }
+                
+                // ========================================================
+                // ⚙️ КОНЕЦ БЛОКА ОЧИСТКИ ПАМЯТИ ПЛЕЕРА
+                // ========================================================
+
+                // Удаляем визуальную строчку с экрана
+                divv.remove(); 
+                
+                // Включаем следующий по порядку трек
+                if (typeof nextTrack === 'function') {
+                    nextTrack();
+                }
+            } else {
+                alert('Произошла ошибка на сервере при перемещении!');
+                // Безопасный возврат: проверяем, висит ли еще селект в DOM
+                if (select.parentNode) select.replaceWith(obname);
+                audio.play(); // Запускаем плеер обратно, раз перемещение сорвалось
+            }
+        }) 
+        .catch(error => {
+            console.error('Ошибка сети:', error);
+            alert('Не удалось связаться с сервером');
+            if (select.parentNode) select.replaceWith(obname);
+            audio.play();
+        })
+        .finally(() => {
+            isProcessing = false;
+        });
+    });
+
+    // Модифицированный blur: срабатывает только если пользователь передумал и кликнул мимо
+    select.addEventListener('blur', () => {
+        setTimeout(() => {
+            // Если процесс отправки не идет и элемент еще на странице — возвращаем текст
+            if (!isProcessing && select.parentNode) {
+                select.replaceWith(obname);
+            }
+        }, 100); // Небольшая задержка, чтобы дать приоритет событию 'change'
+    });
+
+    obname.replaceWith(select);
+    select.focus();
 }
 
 // Вспомогательная функция для получения CSRF-токена Django

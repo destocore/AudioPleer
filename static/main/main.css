@@ -435,6 +435,7 @@ input[type="range"]::-webkit-slider-thumb {
     font-size: 16px;
     padding: 5px 10px;
     transition: transform 0.1s ease;
+    color: white;
 }
 
 .delete-btn:hover {
@@ -464,4 +465,19 @@ input[type="range"]::-webkit-slider-thumb {
 .play-item input[type="text"]:focus {
     border-color: #1DB954; /* Цвет как у .dow:focus */
     box-shadow: 0 0 5px rgba(29, 185, 84, 0.3); /* Легкое зеленое свечение */
+}
+
+.track-item select.replace-select {
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    color: #efefef;
+    padding: 4px 8px;
+    font-size: 14px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+}
+.track-item select.replace-select option {
+    background-color: #1a1a1a;
+    color: #efefef;
 }

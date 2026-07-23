@@ -72,6 +72,9 @@
                             {% if alrem %}
                             <button class="delete-btn" onclick="event.stopPropagation(); rename(this, 'mus')">✏️</button>
                             {%endif%}
+                            {% if alrepm %}
+                            <button class="delete-btn" onclick="event.stopPropagation(); replace(this)">⇆</button>
+                            {%endif%}
                         </div>
                         {%endif%}
                     </div>

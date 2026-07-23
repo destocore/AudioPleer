@@ -8,6 +8,7 @@ import requests
 import shutil
 from django.utils._os import safe_join
 from urllib.parse import unquote
+from pathlib import Path
 
 shup = False
 
@@ -21,7 +22,7 @@ def needUpd():
             return False
     return False
 
-music_dir = os.path.join(settings.MEDIA_ROOT, 'music')
+music_dir = safe_join(settings.MEDIA_ROOT, 'music')
 
 def main(req):
     global shup
@@ -48,6 +49,7 @@ def main(req):
             'aldelm': settings.ALLOW_DEL["mus"],
             'alrep': settings.ALLOW_REN["playlist"],
             'alrem': settings.ALLOW_REN["mus"],
+            'alrepm': settings.ALLOW_REPM,
         }
     )
 
@@ -69,6 +71,7 @@ def openPlaylist(req, playlist: str):
             'aldelm': settings.ALLOW_DEL["mus"],
             'alrep': settings.ALLOW_REN["playlist"],
             'alrem': settings.ALLOW_REN["mus"],
+            'alrepm': settings.ALLOW_REPM,
         })
     raise Http404("Нету такого плейлиста")
 
@@ -318,3 +321,41 @@ def rename_mus(req):
             return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
     else:
         return JsonResponse({'fatalerror': 'Переименовать музыку через сайт нельзя'}, status=403)
+
+def replace(req):
+    if settings.ALLOW_REPM:
+        if req.method == 'REPLACE':
+            try:
+                musN = unquote(req.GET.get('mus', ''))
+                plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
+                plNN = unquote(req.GET.get('new_pl', '')) if req.GET.get('new_pl') else None
+                if not musN.endswith(".mp3"):
+                    musN += ".mp3"
+                if plN == plNN:
+                    return JsonResponse({'fatalerror': f'Не нужно перемещать'}, status=403)
+                if musN:
+                    if plN:
+                        fileP = safe_join(music_dir, plN, musN)
+                    else:
+                        fileP = safe_join(music_dir, musN)
+                    if plNN:
+                        filePn = Path(safe_join(music_dir, plNN, musN))
+                    else:
+                        filePn = Path(safe_join(music_dir, musN))
+                if not os.path.exists(fileP):
+                    return JsonResponse({'error': f'Плелист входа не существует'}, status=403)
+                if not os.path.exists(filePn.parent):
+                    return JsonResponse({'error': f'Плелист выхода не существует'}, status=403)
+                if os.path.exists(filePn):
+                    return JsonResponse({'error': f'В плейлисте существует музыка с одинаковым именем'}, status=403)
+            except Exception as e:
+                return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
+            try:
+                os.replace(fileP, filePn)
+                return JsonResponse({'success': f'Музыка {musN} была успешно переименована!'}, status=200)
+            except Exception as e:
+                return JsonResponse({'error': f'os не смог переместить музыку [{e}]'}, status=500)
+        else:
+            return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+    else:            
+        return JsonResponse({'fatalerror': 'Перемещать музыку через сайт нельзя'}, status=403)

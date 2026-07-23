@@ -35,9 +35,11 @@ ALLOW_REN = {
     "playlist": True,
 }
 
+ALLOW_REPM = True
+
 # [Data]
 
-VERSION = "1.1.7"
+VERSION = "1.1.8"
 
 # [Site settings]
 
