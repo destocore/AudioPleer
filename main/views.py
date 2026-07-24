@@ -1,7 +1,6 @@
 from django.shortcuts import render, redirect
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
-from django.http import Http404, FileResponse, JsonResponse, HttpResponseBadRequest
+from django.http import Http404, FileResponse, JsonResponse
 import os
 from pytubefix import YouTube
 import requests
@@ -9,6 +8,7 @@ import shutil
 from django.utils._os import safe_join
 from urllib.parse import unquote
 from pathlib import Path
+from django.core.signals import request_finished
 
 shup = False
 
@@ -167,40 +167,48 @@ def ExportSystem(req):
     
     # Функция для сборки архива на максималках
     def build_extreme_zip():
-        # ZIP_DEFLATED + compresslevel=9 задействует максимальные алгоритмы сжатия
         with zipfile.ZipFile(archP, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
             for root, dirs, files in os.walk(music_dir):
                 for file in files:
                     file_path = os.path.join(root, file)
-                    # Сохраняем структуру папок (плейлистов) внутри архива
                     relative_path = os.path.relpath(file_path, music_dir)
                     zipf.write(file_path, relative_path)
 
-    # 1. Если папки кэша нет — создаем и жмем по максимуму
+    # 1. Если папки кэша нет — создаем структуру
     if not os.path.exists(settings.CACHE_ROOT):
         os.makedirs(settings.CACHE_ROOT, exist_ok=True)
-        build_extreme_zip()
-        return FileResponse(open(archP, 'rb'), as_attachment=True, filename='musiclist.zip')
-        
-    # Проверяем кэш, если файлы существуют
+
+    # 2. Проверяем валидность существующего кэша
+    cache_valid = False
     if os.path.exists(txtP) and os.path.exists(archP):
         with open(txtP, 'r', encoding='utf-8') as f:
             content = f.read().strip()
             if content and os.path.getmtime(music_dir) <= float(content):
-                return FileResponse(open(archP, 'rb'), as_attachment=True, filename='musiclist.zip')
+                cache_valid = True
             
-    # Пересборка с экстремальным сжатием, если кэш устарел
-    build_extreme_zip()
-    
-    with open(txtP, 'w', encoding='utf-8') as f:
-        f.write(str(os.path.getmtime(archP)))
+    # 3. Если кэш невалиден или файла нет — пересобираем
+    if not cache_valid:
+        build_extreme_zip()
+        with open(txtP, 'w', encoding='utf-8') as f:
+            f.write(str(os.path.getmtime(archP)))
         
-    # Твоя логика удаления (если кэш отключен)
+    # 4. Открываем файл для отправки (точка выхода теперь ОДНА для всех сценариев)
+    response = FileResponse(open(archP, 'rb'), as_attachment=True, filename='musiclist.zip')
+
+    # 5. Если кэш отключен, переопределяем close() для удаления ПОСЛЕ скачивания
     if not settings.EXPORT["cache_mus"]:
-        if os.path.exists(archP): os.remove(archP)
-        if os.path.exists(txtP): os.remove(txtP)
+        original_close = response.close
         
-    return FileResponse(open(archP, 'rb'), as_attachment=True, filename='musiclist.zip')
+        def remove_cache_files():
+            try:
+                original_close()  # Waitress сообщает, что закончил читать файл
+            finally:
+                if os.path.exists(archP): os.remove(archP)
+                if os.path.exists(txtP): os.remove(txtP)
+                
+        response.close = remove_cache_files
+        
+    return response
 
 def delete_track(request):
     if settings.ALLOW_DEL["mus"]:
@@ -329,11 +337,11 @@ def replace(req):
                 musN = unquote(req.GET.get('mus', ''))
                 plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
                 plNN = unquote(req.GET.get('new_pl', '')) if req.GET.get('new_pl') else None
-                if not musN.endswith(".mp3"):
-                    musN += ".mp3"
                 if plN == plNN:
                     return JsonResponse({'fatalerror': f'Не нужно перемещать'}, status=403)
                 if musN:
+                    if not musN.endswith(".mp3"):
+                        musN += ".mp3"
                     if plN:
                         fileP = safe_join(music_dir, plN, musN)
                     else:
