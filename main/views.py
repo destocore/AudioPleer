@@ -35,11 +35,11 @@ def main(req):
     # Список имен файлов (только файлы, исключая папки)
     tracks = []
     if os.path.exists(music_dir):
-        tracks = [f for f in os.listdir(music_dir) if os.path.isfile(os.path.join(music_dir, f))]
+        tracks = [f for f in os.listdir(music_dir) if os.path.isfile(safe_join(music_dir, f))]
 
     playlist = []
     if os.path.exists(music_dir):
-        playlist = [f for f in os.listdir(music_dir) if os.path.isdir(os.path.join(music_dir, f))]
+        playlist = [f for f in os.listdir(music_dir) if os.path.isdir(safe_join(music_dir, f))]
     
     return render(req, 'index.html', {
             'tracks': tracks,
@@ -57,10 +57,10 @@ def openPlaylist(req, playlist: str):
     tracks = []
     playlists_list = []
     if os.path.exists(music_dir):
-        playlists_list = [f for f in os.listdir(music_dir) if os.path.isdir(os.path.join(music_dir, f))]
+        playlists_list = [f for f in os.listdir(music_dir) if os.path.isdir(safe_join(music_dir, f))]
 
-    if os.path.exists(os.path.join(music_dir, playlist)):
-        tracks = [f for f in os.listdir(os.path.join(music_dir, playlist)) if os.path.isfile(os.path.join(music_dir, playlist, f))]
+    if os.path.exists(safe_join(music_dir, playlist)):
+        tracks = [f for f in os.listdir(safe_join(music_dir, playlist)) if os.path.isfile(safe_join(music_dir, playlist, f))]
         
         return render(req, 'index.html', {
             'tracks': tracks, 
@@ -77,7 +77,7 @@ def openPlaylist(req, playlist: str):
 
 def protected_media(request, path):
     
-    file_path = os.path.join(settings.MEDIA_ROOT, path)
+    file_path = safe_join(settings.MEDIA_ROOT, path)
     
     if os.path.exists(file_path):
         return FileResponse(open(file_path, 'rb'))
@@ -86,7 +86,7 @@ def protected_media(request, path):
 
 def youtube(req):
     # Определяем базовую директорию для музыки, чтобы код GET и POST её видел
-    music_dir = os.path.join(settings.MEDIA_ROOT, "music")
+    music_dir = safe_join(settings.MEDIA_ROOT, "music")
     
     if req.method == "POST":
         try:
@@ -99,11 +99,11 @@ def youtube(req):
                 raise Http404("Вы не вставили ссылки и не выбрали файлы для загрузки")
                 
             if floder == "₡₹€ate" and crfl:
-                os.makedirs(os.path.join(music_dir, crfl), exist_ok=True)
+                os.makedirs(safe_join(music_dir, crfl), exist_ok=True)
                 floder = crfl
 
             if floder and floder.strip():
-                output_dir = os.path.join(music_dir, floder.strip())
+                output_dir = safe_join(music_dir, floder.strip())
             else:
                 output_dir = music_dir
                 
@@ -134,7 +134,7 @@ def youtube(req):
                         print(f"Файл {f.name} пропущен: неподдерживаемый формат (нужен только MP3)")
                         continue # Пропускаем этот файл и переходим к следующему
                     
-                    file_path = os.path.join(output_dir, f.name)
+                    file_path = safe_join(output_dir, f.name)
                     
                     # Если файл с таким именем уже есть, удаляем старый
                     if os.path.exists(file_path):
@@ -154,23 +154,23 @@ def youtube(req):
     else:
         # Блок GET-запроса (без изменений)
         if os.path.exists(music_dir):
-            return render(req, "yt.html", context={"pllt": [f for f in os.listdir(music_dir) if os.path.isdir(os.path.join(music_dir, f))]})
+            return render(req, "yt.html", context={"pllt": [f for f in os.listdir(music_dir) if os.path.isdir(safe_join(music_dir, f))]})
         return render(req, "yt.html", context={"pllt":[]})
 
 def ExportSystem(req):
     if not settings.EXPORT["status"]:
         raise Http404("Экспорт отключен в настройках")
     import zipfile
-    music_dir = os.path.join(settings.MEDIA_ROOT, "music")
-    archP = os.path.join(settings.CACHE_ROOT, "cache_mus.zip")
-    txtP = os.path.join(settings.CACHE_ROOT, "musBuildTime.txt")
+    music_dir = safe_join(settings.MEDIA_ROOT, "music")
+    archP = safe_join(settings.CACHE_ROOT, "cache_mus.zip")
+    txtP = safe_join(settings.CACHE_ROOT, "musBuildTime.txt")
     
     # Функция для сборки архива на максималках
     def build_extreme_zip():
         with zipfile.ZipFile(archP, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
             for root, dirs, files in os.walk(music_dir):
                 for file in files:
-                    file_path = os.path.join(root, file)
+                    file_path = safe_join(root, file)
                     relative_path = os.path.relpath(file_path, music_dir)
                     zipf.write(file_path, relative_path)
 
@@ -218,9 +218,9 @@ def delete_track(request):
 
             # 2. Если песня в плейлисте (в подпапке), добавляем имя папки
             if playlist_name:
-                file_path = os.path.join(music_dir, playlist_name, track_name)
+                file_path = safe_join(music_dir, playlist_name, track_name)
             else:
-                file_path = os.path.join(music_dir, track_name)
+                file_path = safe_join(music_dir, track_name)
 
             # 3. Проверяем существование файла и удаляем его
             if os.path.exists(file_path):
