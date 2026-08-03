@@ -2,18 +2,20 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 from django.http import Http404, FileResponse, JsonResponse
 import os
-from pytubefix import YouTube
+import yt_dlp
 import requests
 import shutil
 from django.utils._os import safe_join
 from urllib.parse import unquote
-from pathlib import Path
-from django.core.signals import request_finished
+from pathlib import Path\
 
 shup = False
 
 def needUpd():
-    response = requests.get("https://raw.githubusercontent.com/destocore/AudioPleer/refs/heads/master/version.txt")
+    try:
+        response = requests.get("https://raw.githubusercontent.com/destocore/AudioPleer/refs/heads/master/version.txt")
+    except:
+        return False
     if response.status_code == 200:
         try:
             response = response.text.split("=")[1].strip(' "\n')
@@ -85,7 +87,7 @@ def protected_media(request, path):
     raise Http404("Файл не найден")
 
 def youtube(req):
-    # Определяем базовую директорию для музыки, чтобы код GET и POST её видел
+    # Определяем базовую директорию для музыки
     music_dir = safe_join(settings.MEDIA_ROOT, "music")
     
     if req.method == "POST":
@@ -110,37 +112,37 @@ def youtube(req):
             os.makedirs(output_dir, exist_ok=True)
             
             if url:
-                urls = [u.strip() for u in url.split(" ") if u.strip()]
-                for i in urls:
-                    if i.startswith("https://youtu.be") or i.startswith("https://youtube.com"):
-                        yt = YouTube(i)
-                        audio = yt.streams.get_audio_only()
-                        
-                        downloaded_file = audio.download(output_path=output_dir)
-                        base, ext = os.path.splitext(downloaded_file)
-                        new_file = base + '.mp3'
-                            
-                        if os.path.exists(new_file):
-                            os.remove(new_file)
-                                
-                        os.rename(downloaded_file, new_file)
-                    else:
-                        print(f"Неподдерживаемый формат ссылки: {i}")
+                urls = [u.strip() for u in url.split() if u.strip()]
+                
+                # Настройки yt-dlp: качаем лучшее аудио без перекодирования
+                ydl_opts = {
+                    'format': 'bestaudio',
+                    # Сохраняем с оригинальным расширением (m4a или mp3)
+                    'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+                    'quiet': True,
+                }
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    for i in urls:
+                        try:
+                            print(f"Скачивание через yt-dlp: {i}")
+                            ydl.download([i])
+                        except yt_dlp.utils.DownloadError as dl_err:
+                            print(f"Ошибка или сайт не поддерживается [{i}]: {dl_err}")
+                        except Exception as e:
+                            print(f"Ошибка при обработке URL [{i}]: {e}")
 
             if local_files:
                 for f in local_files:
-                    # Переводим имя в нижний регистр, чтобы поймать и .mp3, и .MP3
-                    if not f.name.lower().endswith('.mp3'):
-                        print(f"Файл {f.name} пропущен: неподдерживаемый формат (нужен только MP3)")
-                        continue # Пропускаем этот файл и переходим к следующему
+                    # Теперь проверяем и на .mp3, и на .m4a
+                    if not f.name.lower().endswith(('.mp3', '.m4a')):
+                        print(f"Файл {f.name} пропущен: формат не поддерживается (нужен MP3 или M4A)")
+                        continue
                     
                     file_path = safe_join(output_dir, f.name)
-                    
-                    # Если файл с таким именем уже есть, удаляем старый
                     if os.path.exists(file_path):
                         os.remove(file_path)
                     
-                    # Безопасно записываем MP3-файл на диск
                     with open(file_path, 'wb+') as destination:
                         for chunk in f.chunks():
                             destination.write(chunk)
@@ -152,7 +154,6 @@ def youtube(req):
             raise Http404(f"Ошибка: {e}")
             
     else:
-        # Блок GET-запроса (без изменений)
         if os.path.exists(music_dir):
             return render(req, "yt.html", context={"pllt": [f for f in os.listdir(music_dir) if os.path.isdir(safe_join(music_dir, f))]})
         return render(req, "yt.html", context={"pllt":[]})
@@ -288,29 +289,29 @@ def rename_mus(req):
     if settings.ALLOW_REN["mus"]:
         if req.method == 'RENAME':
             try:
-                # ИСПРАВЛЕНО: Принудительно декодируем пробелы (%20) и кириллицу (%D0...) в нормальный текст
-                musN = unquote(req.GET.get('mus', ''))
+                musN = unquote(req.GET.get('mus', '')).strip()
                 plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
-                NN = unquote(req.GET.get('new_name', ''))
+                NN = unquote(req.GET.get('new_name', '')).strip()
                 
+                if not musN:
+                    return JsonResponse({'error': 'Не указано имя исходного файла'}, status=400)
                 if not NN:
                     return JsonResponse({'error': 'Нету имени для переименования'}, status=403)
                 
-                # Подстраховка по расширениям (работает уже с чистым текстом)
-                if musN and not musN.endswith('.mp3'):
-                    musN = f"{musN}.mp3"
-                if NN and not NN.endswith('.mp3'):
-                    NN = f"{NN}.mp3"
+                # УДАЛЕНО: принудительное добавление .mp3
+                # Вместо этого автоматически сохраняем оригинальное расширение файла
+                ext = os.path.splitext(musN)[1].lower()  # Получим '.mp3' или '.m4a'
                 
-                if musN:
-                    if plN:
-                        filePth = safe_join(music_dir, plN, musN)
-                        nfilepth = safe_join(music_dir, plN, NN)
-                    else:
-                        filePth = safe_join(music_dir, musN)
-                        nfilepth = safe_join(music_dir, NN)
+                # Если пользователь в новом имени не указал расширение, добавляем родное
+                if not NN.lower().endswith(('.mp3', '.m4a')):
+                    NN = f"{NN}{ext}"
+                
+                if plN:
+                    filePth = safe_join(music_dir, plN, musN)
+                    nfilepth = safe_join(music_dir, plN, NN)
                 else:
-                    return JsonResponse({'error': 'Не указано имя исходного файла'}, status=400)
+                    filePth = safe_join(music_dir, musN)
+                    nfilepth = safe_join(music_dir, NN)
                 
                 if not os.path.exists(filePth):
                     return JsonResponse({'error': f'Музыка с именем {musN} не существует'}, status=404)
@@ -322,48 +323,60 @@ def rename_mus(req):
                 
             try:
                 os.rename(filePth, nfilepth)
-                return JsonResponse({'success': f'Музыка {musN} была успешно переименована!'}, status=200)
+                return JsonResponse({'success': f'Музыка {musN} была успешно переименована в {NN}!'}, status=200)
             except Exception as e:
                 return JsonResponse({'error': f'os не смог переименовать музыку [{e}]'}, status=500)
         else:
-            return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+            return JsonResponse({'error': 'Не удалось прочитать запрос'}, status=500)
     else:
         return JsonResponse({'fatalerror': 'Переименовать музыку через сайт нельзя'}, status=403)
 
 def replace(req):
     if settings.ALLOW_REPM:
+        # Для метода REPLACE обычно используют req.method == 'REPLACE'
         if req.method == 'REPLACE':
             try:
-                musN = unquote(req.GET.get('mus', ''))
+                musN = unquote(req.GET.get('mus', '')).strip()
                 plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
                 plNN = unquote(req.GET.get('new_pl', '')) if req.GET.get('new_pl') else None
+                
+                # Защита: если имя музыки не передали, сразу отдаем ошибку
+                if not musN:
+                    return JsonResponse({'error': 'Не указано имя файла музыки'}, status=400)
+
                 if plN == plNN:
-                    return JsonResponse({'fatalerror': f'Не нужно перемещать'}, status=403)
-                if musN:
-                    if not musN.endswith(".mp3"):
-                        musN += ".mp3"
-                    if plN:
-                        fileP = safe_join(music_dir, plN, musN)
-                    else:
-                        fileP = safe_join(music_dir, musN)
-                    if plNN:
-                        filePn = Path(safe_join(music_dir, plNN, musN))
-                    else:
-                        filePn = Path(safe_join(music_dir, musN))
+                    return JsonResponse({'fatalerror': 'Не нужно перемещать в тот же плейлист'}, status=403)
+                
+                # УДАЛЕНО: жесткая привязка к .mp3. Теперь берем имя файла как есть
+                if plN:
+                    fileP = safe_join(music_dir, plN, musN)
+                else:
+                    fileP = safe_join(music_dir, musN)
+                    
+                if plNN:
+                    filePn = Path(safe_join(music_dir, plNN, musN))
+                else:
+                    filePn = Path(safe_join(music_dir, musN))
+                    
                 if not os.path.exists(fileP):
-                    return JsonResponse({'error': f'Плелист входа не существует'}, status=403)
+                    return JsonResponse({'error': 'Файл музыки в исходном плейлисте не существует'}, status=403)
+                    
                 if not os.path.exists(filePn.parent):
-                    return JsonResponse({'error': f'Плелист выхода не существует'}, status=403)
+                    return JsonResponse({'error': 'Плейлист выхода не существует'}, status=403)
+                    
                 if os.path.exists(filePn):
-                    return JsonResponse({'error': f'В плейлисте существует музыка с одинаковым именем'}, status=403)
+                    return JsonResponse({'error': 'В целевом плейлисте уже существует музыка с таким именем'}, status=403)
+                    
             except Exception as e:
                 return JsonResponse({'error': f'Произошла ошибка для оформления запроса [{e}]'}, status=500)
+                
             try:
                 os.replace(fileP, filePn)
-                return JsonResponse({'success': f'Музыка {musN} была успешно переименована!'}, status=200)
+                # Исправлен текст: функция же перемещает, а не переименовывает
+                return JsonResponse({'success': f'Музыка {musN} была успешно перемещена!'}, status=200)
             except Exception as e:
                 return JsonResponse({'error': f'os не смог переместить музыку [{e}]'}, status=500)
         else:
-            return JsonResponse({'error': f'Не удалось прочитать запрос'}, status=500)
+            return JsonResponse({'error': 'Не удалось прочитать запрос (неверный метод)'}, status=400)
     else:            
         return JsonResponse({'fatalerror': 'Перемещать музыку через сайт нельзя'}, status=403)
