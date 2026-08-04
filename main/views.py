@@ -7,10 +7,11 @@ import requests
 import shutil
 from django.utils._os import safe_join
 from urllib.parse import unquote
-from pathlib import Path\
+from pathlib import Path
+import logging
 
 shup = False
-
+logger = logging.getLogger(__name__)
 def needUpd():
     try:
         response = requests.get("https://raw.githubusercontent.com/destocore/AudioPleer/refs/heads/master/version.txt")
@@ -333,30 +334,35 @@ def rename_mus(req):
 
 def replace(req):
     if settings.ALLOW_REPM:
-        # Для метода REPLACE обычно используют req.method == 'REPLACE'
         if req.method == 'REPLACE':
             try:
                 musN = unquote(req.GET.get('mus', '')).strip()
                 plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
                 plNN = unquote(req.GET.get('new_pl', '')) if req.GET.get('new_pl') else None
                 
-                # Защита: если имя музыки не передали, сразу отдаем ошибку
                 if not musN:
                     return JsonResponse({'error': 'Не указано имя файла музыки'}, status=400)
 
                 if plN == plNN:
                     return JsonResponse({'fatalerror': 'Не нужно перемещать в тот же плейлист'}, status=403)
                 
-                # УДАЛЕНО: жесткая привязка к .mp3. Теперь берем имя файла как есть
-                if plN:
-                    fileP = safe_join(music_dir, plN, musN)
-                else:
-                    fileP = safe_join(music_dir, musN)
-                    
-                if plNN:
-                    filePn = Path(safe_join(music_dir, plNN, musN))
-                else:
-                    filePn = Path(safe_join(music_dir, musN))
+                # Определяем папки для поиска и перемещения
+                source_dir = safe_join(music_dir, plN) if plN else music_dir
+                target_dir = safe_join(music_dir, plNN) if plNN else music_dir
+
+                # Автоподбор расширения (.mp3/.m4a), если имя пришло без него
+                if not musN.lower().endswith(('.mp3', '.m4a')):
+                    if os.path.exists(source_dir):
+                        found_files = [
+                            f for f in os.listdir(source_dir) 
+                            if os.path.splitext(f)[0] == musN and f.lower().endswith(('.mp3', '.m4a'))
+                        ]
+                        if found_files:
+                            musN = found_files[0]
+
+                # Собираем финальные пути к файлам
+                fileP = safe_join(source_dir, musN)
+                filePn = Path(safe_join(target_dir, musN))
                     
                 if not os.path.exists(fileP):
                     return JsonResponse({'error': 'Файл музыки в исходном плейлисте не существует'}, status=403)
@@ -372,7 +378,6 @@ def replace(req):
                 
             try:
                 os.replace(fileP, filePn)
-                # Исправлен текст: функция же перемещает, а не переименовывает
                 return JsonResponse({'success': f'Музыка {musN} была успешно перемещена!'}, status=200)
             except Exception as e:
                 return JsonResponse({'error': f'os не смог переместить музыку [{e}]'}, status=500)
