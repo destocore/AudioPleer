@@ -8,10 +8,10 @@ import shutil
 from django.utils._os import safe_join
 from urllib.parse import unquote
 from pathlib import Path
-import logging
+from pytubefix import YouTube
 
 shup = False
-logger = logging.getLogger(__name__)
+
 def needUpd():
     try:
         response = requests.get("https://raw.githubusercontent.com/destocore/AudioPleer/refs/heads/master/version.txt")
@@ -78,18 +78,7 @@ def openPlaylist(req, playlist: str):
         })
     raise Http404("Нету такого плейлиста")
 
-def protected_media(request, path):
-    
-    file_path = safe_join(settings.MEDIA_ROOT, path)
-    
-    if os.path.exists(file_path):
-        return FileResponse(open(file_path, 'rb'))
-    
-    raise Http404("Файл не найден")
-
 def youtube(req):
-    # Определяем базовую директорию для музыки
-    music_dir = safe_join(settings.MEDIA_ROOT, "music")
     
     if req.method == "POST":
         try:
@@ -113,34 +102,52 @@ def youtube(req):
             os.makedirs(output_dir, exist_ok=True)
             
             if url:
-                urls = [u.strip() for u in url.split() if u.strip()]
+                urls = [u.strip() for u in url.split(" ") if u.strip()]
+                for i in urls:
+                    url_lower = i.lower()
+                    
+                    # 1. ОБРАБОТКА YOUTUBE (Оригинальный сырой формат)
+                    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+                        try:
+                            yt = YouTube(i, use_oauth=False, allow_oauth_cache=False)
+                            audio = yt.streams.get_audio_only()
+                            
+                            if audio:
+                                # Библиотека сама сохранит файл с его родным расширением (.m4a/.webm)
+                                downloaded_file = audio.download(output_path=output_dir)
+                                print(f"YouTube трек скачан в оригинальном формате: {downloaded_file}")
+                            else:
+                                print(f"Не удалось найти аудиопоток для {i}")
+                        except Exception as e:
+                            print(f"Ошибка pytubefix при обработке [{i}]: {e}")
+                    
+                    # 2. ОБРАБОТКА ДРУГИХ САЙТОВ (Оригинальный сырой формат)
+                    else:
+                        ydl_opts = {
+                            'format': 'bestaudio',
+                            'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+                            'quiet': True,
+                        }
                 
-                # Настройки yt-dlp: качаем лучшее аудио без перекодирования
-                ydl_opts = {
-                    'format': 'bestaudio',
-                    # Сохраняем с оригинальным расширением (m4a или mp3)
-                    'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
-                    'quiet': True,
-                }
-                
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    for i in urls:
                         try:
                             print(f"Скачивание через yt-dlp: {i}")
-                            ydl.download([i])
+                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                                # Скачиваем файл. yt-dlp автоматически подставит правильное расширение сайта
+                                ydl.download([i])
                         except yt_dlp.utils.DownloadError as dl_err:
-                            print(f"Ошибка или сайт не поддерживается [{i}]: {dl_err}")
+                            print(f"Ошибка или сайт не подтверждается [{i}]: {dl_err}")
                         except Exception as e:
                             print(f"Ошибка при обработке URL [{i}]: {e}")
 
             if local_files:
                 for f in local_files:
-                    # Теперь проверяем и на .mp3, и на .m4a
-                    if not f.name.lower().endswith(('.mp3', '.m4a')):
-                        print(f"Файл {f.name} пропущен: формат не поддерживается (нужен MP3 или M4A)")
+                    # Расширяем проверку, так как теперь мы поддерживаем разные сырые форматы медиа
+                    if not f.name.lower().endswith(('.mp3', '.m4a', '.webm', '.ogg', '.wav')):
+                        print(f"Файл {f.name} пропущен: неподдерживаемый аудио-формат")
                         continue
                     
                     file_path = safe_join(output_dir, f.name)
+                    
                     if os.path.exists(file_path):
                         os.remove(file_path)
                     
