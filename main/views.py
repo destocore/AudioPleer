@@ -14,7 +14,7 @@ shup = False
 
 def needUpd():
     try:
-        response = requests.get("https://raw.githubusercontent.com/destocore/AudioPleer/refs/heads/master/version.txt")
+        response = requests.get("https://raw.githubusercontent.com/destocore/AudioPleer/refs/heads/master/version.txt", timeout=1.5)
     except:
         return False
     if response.status_code == 200:
@@ -79,7 +79,6 @@ def openPlaylist(req, playlist: str):
     raise Http404("Нету такого плейлиста")
 
 def youtube(req):
-    
     if req.method == "POST":
         try:
             url = req.POST.get('url')
@@ -104,50 +103,51 @@ def youtube(req):
             if url:
                 urls = [u.strip() for u in url.split(" ") if u.strip()]
                 for i in urls:
-                    url_lower = i.lower()
+                    print(f" Начинаем обработку ссылки: {i}", flush=True)
                     
-                    # 1. ОБРАБОТКА YOUTUBE (Оригинальный сырой формат)
-                    if "youtube.com" in url_lower or "youtu.be" in url_lower:
-                        try:
-                            yt = YouTube(i, use_oauth=False, allow_oauth_cache=False)
-                            audio = yt.streams.get_audio_only()
+                    ydl_opts_heavy = {
+                        'format': 'bestaudio/best',                 
+                        'outtmpl': os.path.join(output_dir, '%(title)s.m4a'), 
+                        
+                        # 🔎 ВКЛЮЧАЕМ ПОЛНЫЙ ДЕБАГ:
+                        'verbose': True,            # Этот флаг выведет технические логи в консоль
+                        
+                        'quiet': False,
+                        'no_warnings': False,
+                        'nocheckcertificate': True,
+                        
+                        # Расширяем лимиты, чтобы отличить плохую сеть от блокировки:
+                        'socket_timeout': 30,       
+                        'retries': 3,            
+                        'fragment_retries': 5,   
+                    }
+
+
+                                    
+                    try:
+                        print(f" Запуск yt-dlp для: {i}", flush=True)
+                        with yt_dlp.YoutubeDL(ydl_opts_heavy) as ydl:
+                            # extract_info с download=True выполнит и поиск, и скачивание
+                            info_dict = ydl.extract_info(i, download=True)
                             
-                            if audio:
-                                # Библиотека сама сохранит файл с его родным расширением (.m4a/.webm)
-                                downloaded_file = audio.download(output_path=output_dir)
-                                print(f"YouTube трек скачан в оригинальном формате: {downloaded_file}")
-                            else:
-                                print(f"Не удалось найти аудиопоток для {i}")
-                        except Exception as e:
-                            print(f"Ошибка pytubefix при обработке [{i}]: {e}")
-                    
-                    # 2. ОБРАБОТКА ДРУГИХ САЙТОВ (Оригинальный сырой формат)
-                    else:
-                        ydl_opts = {
-                            'format': 'bestaudio',
-                            'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
-                            'quiet': True,
-                        }
-                
-                        try:
-                            print(f"Скачивание через yt-dlp: {i}")
-                            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                                # Скачиваем файл. yt-dlp автоматически подставит правильное расширение сайта
-                                ydl.download([i])
-                        except yt_dlp.utils.DownloadError as dl_err:
-                            print(f"Ошибка или сайт не подтверждается [{i}]: {dl_err}")
-                        except Exception as e:
-                            print(f"Ошибка при обработке URL [{i}]: {e}")
+                            if info_dict:
+                                actual_file = ydl.prepare_filename(info_dict)
+                                if os.path.exists(actual_file):
+                                    print(f"🔥 Успешно скачано: {actual_file}", flush=True)
+                                    download_success = True
+                                else:
+                                    print(f"❌ Файл не найден на диске: {actual_file}", flush=True)
+                                    
+                    except Exception as err:
+                        print(f"💥 Ошибка yt-dlp на [{i}]: {err}", flush=True)
 
             if local_files:
                 for f in local_files:
-                    # Расширяем проверку, так как теперь мы поддерживаем разные сырые форматы медиа
                     if not f.name.lower().endswith(('.mp3', '.m4a', '.webm', '.ogg', '.wav')):
                         print(f"Файл {f.name} пропущен: неподдерживаемый аудио-формат")
                         continue
                     
                     file_path = safe_join(output_dir, f.name)
-                    
                     if os.path.exists(file_path):
                         os.remove(file_path)
                     
@@ -269,7 +269,7 @@ def delete_pl(request):
 
 def rename_pl(req):
     if settings.ALLOW_REN["playlist"]:
-        if req.method == 'RENAME':
+        if req.method == 'POST':
             try:
                 plN = req.GET.get('playlist')
                 NN = req.GET.get('new_name')
@@ -295,7 +295,7 @@ def rename_pl(req):
 
 def rename_mus(req):
     if settings.ALLOW_REN["mus"]:
-        if req.method == 'RENAME':
+        if req.method == 'POST':
             try:
                 musN = unquote(req.GET.get('mus', '')).strip()
                 plN = unquote(req.GET.get('playlist', '')) if req.GET.get('playlist') else None
